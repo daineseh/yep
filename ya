@@ -1,0 +1,76 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import os
+import re
+import subprocess
+import sys
+import youtube_dl
+
+RED = 91
+LIME = 92
+YELLOW = 93
+BLUE = 94
+PINK = 95
+CYAN = 96
+WHITE = 97
+s = '\x1b[%d;%dm%s\x1b[0m' # terminal color template
+color_str = lambda fc, string: s % (1, fc, string)
+
+opts = {'forceurl': True,
+        'forcetitle': True,
+        'no_warnings': True,
+        'quiet': True,
+        'simulate': True}
+
+
+def is_aria2_installed():
+    for cmdpath in os.environ['PATH'].split(':'):
+        if os.path.isdir(cmdpath) and 'aria2c' in os.listdir(cmdpath):
+            return True
+    return False
+
+
+def download_file(url, file_name):
+    print("%s %s" % (color_str(WHITE, file_name), color_str(RED, 'Downloading...')))
+    cmd = ['aria2c', '-x4', url, '-o', file_name]
+    aria2_process = subprocess.Popen(cmd)
+    aria2_process.communicate()
+    print("%s %s" % (color_str(WHITE, file_name), color_str(CYAN, 'Download Completed!')))
+
+
+def youtube_dl_extrace(url):
+    with youtube_dl.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url)
+    title = '%s-%s.%s' % (info.get('title'), info.get('id'), info.get('ext'))
+    resource_uri = info.get('url')
+    if not resource_uri:
+        vid = info.get('format_id')
+        for item in info.get('formats'):
+            if vid == item.get('format_id'):
+                resource_uri = item.get('url')
+    print("[%s] %s" % (color_str(YELLOW, info.get('extractor')), title))
+    return title, resource_uri
+
+
+def main():
+    if len(sys.argv) < 2:
+        print('Usage: $ya URL1 URL2 ...')
+        return
+
+    if not is_aria2_installed():
+        print('Aria2 not found.')
+        return
+
+    for url in sys.argv[1:]:
+        try:
+            title, resource_uri = youtube_dl_extrace(url)
+            download_file(resource_uri, title)
+        except Exception as e:
+            print(e)
+            continue
+
+
+if __name__ == '__main__':
+    main()
+
